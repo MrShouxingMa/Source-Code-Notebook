@@ -105,7 +105,7 @@ class SublayerConnection(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, sublayer):
-        "先sublayer由子层实现功能再norm，residual connection就再加上x保持特征不变，维度相等都是512维"
+        """先norm,再实现由sublayer功能(自注意力)，residual connection就再加上x保持特征不变，维度相等都是512维"""
         return x + self.dropout(sublayer(self.norm(x)))
 
 class EncoderLayer(nn.Module):
