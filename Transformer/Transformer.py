@@ -425,7 +425,7 @@ class LabelSmoothing(nn.Module):
         assert x.size(1) == self.size
         true_dist = x.data.clone()
         true_dist.fill_(self.smoothing / (self.size - 2))#然后其他地方给0平分
-        true_dist.scatter_(1, target.data.unsqueeze(1), self.confidence)
+        true_dist.scatter_(1, torch.tensor(target.data.unsqueeze(1), dtype=torch.int64), self.confidence) # 之前代码会报错，IndexError: scatter_(): Expected dtype int64 for index.
         true_dist[:, self.padding_idx] = 0
         mask = torch.nonzero(target.data == self.padding_idx)
         if mask.dim() > 0:#mask的地方都得是0
@@ -434,22 +434,13 @@ class LabelSmoothing(nn.Module):
         #计算KL散度
         return self.criterion(x, Variable(true_dist, requires_grad=False))   # 调用KL散度函数，函数默认input为已经log过，即446行的处理
 
-#标签平滑的例子
+#标签平滑的例子  单独，与下面整体代码无关
 crit = LabelSmoothing(5, 0, 0.4)
 predict = torch.FloatTensor([[0, 0.2, 0.7, 0.1, 0],
                              [0, 0.2, 0.7, 0.1, 0], 
                              [0, 0.2, 0.7, 0.1, 0]])
 v = crit(Variable(predict.log()), 
          Variable(torch.LongTensor([2, 1, 0])))
-
-
-
-
-
-
-
-
-
 
 #--------------A First Example---------
 #一个简单的copy-task，即输入什么就输出什么
