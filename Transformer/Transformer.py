@@ -225,7 +225,7 @@ class MultiHeadedAttention(nn.Module):
 class PositionwiseFeedForward(nn.Module):
     """
     这里是全连接FFN层，即fully connected feed-forward network
-    两层+ReLU的NN，即公式是FFN(x)=max(0,xW1+b1)W2+b2
+    两层+ReLU的NN，即公式是FFN(x)=max(0,xW1+b1)W2+b2   第二层Liner无dropout
     """
     def __init__(self, d_model, d_ff, dropout=0.1):
         super(PositionwiseFeedForward, self).__init__()
@@ -266,7 +266,7 @@ class PositionalEncoding(nn.Module):
         pe[:, 0::2] = torch.sin(position * div_term)#奇数位用sin
         pe[:, 1::2] = torch.cos(position * div_term)#偶数位用cos
         pe = pe.unsqueeze(0)
-        self.register_buffer('pe', pe)
+        self.register_buffer('pe', pe)   # 对参数在保存中做设置，通过register_buffer()登记过的张量：会自动成为模型中的参数，随着模型移动（gpu/cpu）而移动，但是不会随着梯度进行更新。
         
     def forward(self, x):
         x = x + Variable(self.pe[:, :x.size(1)], 
@@ -436,7 +436,7 @@ class LabelSmoothing(nn.Module):
             true_dist.index_fill_(0, mask.squeeze(), 0.0)
         self.true_dist = true_dist
         #计算KL散度
-        return self.criterion(x, Variable(true_dist, requires_grad=False))
+        return self.criterion(x, Variable(true_dist, requires_grad=False))   # 调用KL散度函数，函数默认input为已经log过，即446行的处理
 
 #标签平滑的例子
 crit = LabelSmoothing(5, 0, 0.4)
