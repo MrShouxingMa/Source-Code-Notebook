@@ -300,10 +300,6 @@ def make_model(src_vocab, tgt_vocab, N=6,
             nn.init.xavier_uniform(p)
     return model
 
-#一个小模型的例子
-tmp_model = make_model(10, 10, 2)#10是词汇表大小
-
-
 
 #--------------开始训练---------
 class Batch:
@@ -484,7 +480,7 @@ class SimpleLossCompute:
         return loss.data[0] * norm
         
 #训练这个copy-task
-V = 11#特别小的词汇表
+V = 11  # 特别小的词汇表, V是词汇表大小
 criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
 model = make_model(V, V, N=2)
 model_opt = NoamOpt(model.src_embed[0].d_model, 1, 400,
