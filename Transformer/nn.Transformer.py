@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 #pytorch官方函数，nn.Transformer
-
+# torchtext==0.6.0
 
 #---------------------搭建模型非常简单------------------------
 class TransformerModel(nn.Module):
