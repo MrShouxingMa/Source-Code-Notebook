@@ -1,0 +1,65 @@
+# -*- ecoding: utf-8 -*-
+# @ModuleName: 验证多头注意力模块和手工计算
+# @Function:
+# @Author: Jerry
+# @Time: 2023/9/21 21:09
+# https://zhuanlan.zhihu.com/p/594943780 参考链接
+import math
+import torch
+import einops
+
+seed = 2022
+torch.cuda.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+torch.manual_seed(seed)
+np.random.seed(seed)
+# 准备初始化参数
+query = torch.rand((1, 4, 4))
+key = query
+value = query
+
+# 准备相关权重
+w_o = torch.rand((4, 4))
+inputs_weight = torch.rand((12, 4))
+# w_q,w_k,w_v = inputs_weight.chunk(3)
+w_q, w_k, w_v = einops.rearrange(inputs_weight, "(split tag) src->split tag src", split=3)
+
+# 实现计算
+new_query_scale = query @ w_q.T / math.sqrt(query.size(2))
+new_key = einops.rearrange(key @ w_k.T, "batch seq embed->batch embed seq")
+new_value = value @ w_v.T
+attention_weights = torch.nn.functional.softmax(torch.bmm(new_query_scale, new_key), dim=-1)
+attention_output = attention_weights @ new_value @ w_o.T
+
+# 对比torch的实现
+multihead_attn = torch.nn.MultiheadAttention(embed_dim=4 * 1, num_heads=1, bias=False, batch_first=True)
+# 修改初始权重, 和我们手动写的保持一致
+param_dict = multihead_attn.state_dict()
+param_dict['in_proj_weight'] = inputs_weight
+param_dict['out_proj.weight'] = w_o
+multihead_attn.load_state_dict(param_dict)
+# 可以使用multihead_attn.state_dict()查看参数
+# 调用模型
+attn_output, attn_output_weights = multihead_attn(query, key, value, average_attn_weights=False)
+# 对比
+attn_output == attention_output
+attn_output_weights == attention_weights
+
+# 掩码实现
+attn_mask = einops.rearrange(torch.triu(torch.ones(4, 4), diagonal=0), "tag src->() tag src").bool()
+attn_mask = torch.zeros_like(attn_mask, dtype=torch.float32).masked_fill_(attn_mask, float("-inf"))
+attention_weights = torch.nn.functional.softmax(torch.baddbmm(attn_mask, new_query_scale, new_key), dim=-1)
+attention_output = attention_weights @ new_value @ w_o.T
+
+# 填充掩码
+key_padding_mask = torch.tensor([[0, 0, 1, 1]]).bool()
+attn_mask = einops.rearrange(einops.repeat(einops.rearrange(
+    key_padding_mask, "batch seq->batch () () seq"),
+    "batch num_heads tag src_len->batch (c num_heads) (a tag) src_len", a=query.size(1), c=1),
+    "batch num_heads tag src_len->(batch num_heads) tag src_len")
+
+# 对比pytorch实现
+attn_output, attn_output_weights = multihead_attn(query, key, value, attn_mask=attn_mask, average_attn_weights=False)
+
+attn_output == attention_output
+attn_output_weights == attention_weights
